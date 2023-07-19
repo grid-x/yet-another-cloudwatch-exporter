@@ -12,8 +12,6 @@ import (
 	aws_config "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/amp"
-	"github.com/aws/aws-sdk-go-v2/service/apigateway"
-	"github.com/aws/aws-sdk-go-v2/service/apigatewayv2"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/databasemigrationservice"
@@ -180,8 +178,6 @@ func (c *CachingFactory) GetTaggingClient(region string, role config.Role, concu
 		c.logger,
 		c.createTaggingClient(c.clients[role][region].awsConfig),
 		c.createAutoScalingClient(c.clients[role][region].awsConfig),
-		c.createAPIGatewayClient(c.clients[role][region].awsConfig),
-		c.createAPIGatewayV2Client(c.clients[role][region].awsConfig),
 		c.createEC2Client(c.clients[role][region].awsConfig),
 		c.createDMSClient(c.clients[role][region].awsConfig),
 		c.createPrometheusClient(c.clients[role][region].awsConfig),
@@ -226,8 +222,6 @@ func (c *CachingFactory) Refresh() {
 				c.logger,
 				c.createTaggingClient(cache.awsConfig),
 				c.createAutoScalingClient(cache.awsConfig),
-				c.createAPIGatewayClient(cache.awsConfig),
-				c.createAPIGatewayV2Client(cache.awsConfig),
 				c.createEC2Client(cache.awsConfig),
 				c.createDMSClient(cache.awsConfig),
 				c.createPrometheusClient(cache.awsConfig),
@@ -311,26 +305,6 @@ func (c *CachingFactory) createEC2Client(assumedConfig *aws.Config) *ec2.Client 
 
 func (c *CachingFactory) createDMSClient(assumedConfig *aws.Config) *databasemigrationservice.Client {
 	return databasemigrationservice.NewFromConfig(*assumedConfig, func(options *databasemigrationservice.Options) {
-		if c.logger.IsDebugEnabled() {
-			options.ClientLogMode = aws.LogRequestWithBody | aws.LogResponseWithBody
-		}
-
-		options.RetryMaxAttempts = 5
-	})
-}
-
-func (c *CachingFactory) createAPIGatewayClient(assumedConfig *aws.Config) *apigateway.Client {
-	return apigateway.NewFromConfig(*assumedConfig, func(options *apigateway.Options) {
-		if c.logger.IsDebugEnabled() {
-			options.ClientLogMode = aws.LogRequestWithBody | aws.LogResponseWithBody
-		}
-
-		options.RetryMaxAttempts = 5
-	})
-}
-
-func (c *CachingFactory) createAPIGatewayV2Client(assumedConfig *aws.Config) *apigatewayv2.Client {
-	return apigatewayv2.NewFromConfig(*assumedConfig, func(options *apigatewayv2.Options) {
 		if c.logger.IsDebugEnabled() {
 			options.ClientLogMode = aws.LogRequestWithBody | aws.LogResponseWithBody
 		}

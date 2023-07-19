@@ -11,10 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/apigateway"
-	"github.com/aws/aws-sdk-go/service/apigateway/apigatewayiface"
-	"github.com/aws/aws-sdk-go/service/apigatewayv2"
-	"github.com/aws/aws-sdk-go/service/apigatewayv2/apigatewayv2iface"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
@@ -230,8 +226,6 @@ func createTaggingClient(logger logging.Logger, session *session.Session, region
 		logger,
 		createTagSession(session, region, role, logger.IsDebugEnabled()),
 		createASGSession(session, region, role, logger.IsDebugEnabled()),
-		createAPIGatewaySession(session, region, role, fips, logger.IsDebugEnabled()),
-		createAPIGatewayV2Session(session, region, role, fips, logger.IsDebugEnabled()),
 		createEC2Session(session, region, role, fips, logger.IsDebugEnabled()),
 		createDMSSession(session, region, role, fips, logger.IsDebugEnabled()),
 		createPrometheusSession(session, region, role, fips, logger.IsDebugEnabled()),
@@ -453,38 +447,6 @@ func createDMSSession(sess *session.Session, region *string, role config.Role, f
 	}
 
 	return databasemigrationservice.New(sess, setSTSCreds(sess, config, role))
-}
-
-func createAPIGatewaySession(sess *session.Session, region *string, role config.Role, fips bool, isDebugEnabled bool) apigatewayiface.APIGatewayAPI {
-	maxAPIGatewayAPIRetries := 5
-	config := &aws.Config{Region: region, MaxRetries: &maxAPIGatewayAPIRetries}
-	if fips {
-		// https://docs.aws.amazon.com/general/latest/gr/apigateway.html
-		endpoint := fmt.Sprintf("https://apigateway-fips.%s.amazonaws.com", *region)
-		config.Endpoint = aws.String(endpoint)
-	}
-
-	if isDebugEnabled {
-		config.LogLevel = aws.LogLevel(aws.LogDebugWithHTTPBody)
-	}
-
-	return apigateway.New(sess, setSTSCreds(sess, config, role))
-}
-
-func createAPIGatewayV2Session(sess *session.Session, region *string, role config.Role, fips bool, isDebugEnabled bool) apigatewayv2iface.ApiGatewayV2API {
-	maxAPIGatewayAPIRetries := 5
-	config := &aws.Config{Region: region, MaxRetries: &maxAPIGatewayAPIRetries}
-	if fips {
-		// https://docs.aws.amazon.com/general/latest/gr/apigateway.html
-		endpoint := fmt.Sprintf("https://apigateway-fips.%s.amazonaws.com", *region)
-		config.Endpoint = aws.String(endpoint)
-	}
-
-	if isDebugEnabled {
-		config.LogLevel = aws.LogLevel(aws.LogDebugWithHTTPBody)
-	}
-
-	return apigatewayv2.New(sess, setSTSCreds(sess, config, role))
 }
 
 func createShieldSession(sess *session.Session, region *string, role config.Role, fips bool, isDebugEnabled bool) shieldiface.ShieldAPI {
