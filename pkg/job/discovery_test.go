@@ -90,6 +90,7 @@ func Test_getFilteredMetricDatas(t *testing.T) {
 			[]model.CloudwatchData{
 				{
 					AddCloudwatchTimestamp: aws.Bool(false),
+					AddHistoricalMetrics:   aws.Bool(false),
 					Dimensions: []*model.Dimension{
 						{
 							Name:  "FileSystemId",
@@ -173,6 +174,7 @@ func Test_getFilteredMetricDatas(t *testing.T) {
 			[]model.CloudwatchData{
 				{
 					AddCloudwatchTimestamp: aws.Bool(false),
+					AddHistoricalMetrics:   aws.Bool(false),
 					Dimensions: []*model.Dimension{
 						{
 							Name:  "InstanceId",
@@ -252,6 +254,7 @@ func Test_getFilteredMetricDatas(t *testing.T) {
 			[]model.CloudwatchData{
 				{
 					AddCloudwatchTimestamp: aws.Bool(false),
+					AddHistoricalMetrics:   aws.Bool(false),
 					Dimensions: []*model.Dimension{
 						{
 							Name:  "Cluster Name",
@@ -375,6 +378,7 @@ func Test_getFilteredMetricDatas(t *testing.T) {
 			[]model.CloudwatchData{
 				{
 					AddCloudwatchTimestamp: aws.Bool(false),
+					AddHistoricalMetrics:   aws.Bool(false),
 					Dimensions: []*model.Dimension{
 						{
 							Name:  "LoadBalancer",
@@ -420,6 +424,9 @@ func Test_getFilteredMetricDatas(t *testing.T) {
 				}
 				if *got.AddCloudwatchTimestamp != *tt.wantGetMetricsData[i].AddCloudwatchTimestamp {
 					t.Errorf("getFilteredMetricDatas().AddCloudwatchTimestamp = %v, want %v", *got.AddCloudwatchTimestamp, *tt.wantGetMetricsData[i].AddCloudwatchTimestamp)
+				}
+				if *got.AddHistoricalMetrics != *tt.wantGetMetricsData[i].AddHistoricalMetrics {
+					t.Errorf("getFilteredMetricDatas().AddHistoricalMetrics = %v, want %v", *got.AddHistoricalMetrics, *tt.wantGetMetricsData[i].AddHistoricalMetrics)
 				}
 				if *got.NilToZero != *tt.wantGetMetricsData[i].NilToZero {
 					t.Errorf("getFilteredMetricDatas().NilToZero = %v, want %v", *got.NilToZero, *tt.wantGetMetricsData[i].NilToZero)

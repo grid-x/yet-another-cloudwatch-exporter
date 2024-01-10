@@ -73,30 +73,68 @@ func runDiscoveryJob(
 
 	count := 0
 
+	var addHistoricalMetrics bool
+	if job.AddHistoricalMetrics != nil {
+		addHistoricalMetrics = *job.AddHistoricalMetrics
+	}
+
 	for i := 0; i < metricDataLength; i += maxMetricCount {
-		start := i
-		end := i + maxMetricCount
-		if end > metricDataLength {
-			end = metricDataLength
-		}
-		partitionNum := count
+		go func(i, n int) {
+			defer wg.Done()
+			end := i + maxMetricCount
+			if end > metricDataLength {
+				end = metricDataLength
+			}
+			input := getMetricDatas[i:end]
+			data := clientCloudwatch.GetMetricData(ctx, logger, input, svc.Namespace, length, job.Delay, job.RoundingPeriod, addHistoricalMetrics)
+			if data != nil {
+				getMetricDataOutput[n] = data
+			} else {
+				logger.Warn("GetMetricData partition empty result", "partition", n, "start", i, "end", end)
+			}
+		}(i, count)
 		count++
 
-		g.Go(func() error {
-			logger.Debug("GetMetricData partition", "start", start, "end", end, "partitionNum", partitionNum)
+	// Update getMetricDatas slice with values and timestamps from API response.
+	// We iterate through the response MetricDataResults and match the result ID
+	// with what was sent in the API request.
+	// In the event that the API response contains any ID we don't know about
+	// (shouldn't really happen) we log a warning and move on. On the other hand,
+	// in case the API response does not contain results for all the IDs we've
+	// requested, unprocessed elements will be removed later on.
+	for _, data := range getMetricDataOutput {
+		if data == nil {
+			continue
+		}
+		previousIdx := -1
+		previousID := ""
+		for _, metricDataResult := range data {
+			idx := findGetMetricDataByID(getMetricDatas, *metricDataResult.ID)
+			// TODO: This logic needs to be guarded by a feature flag! Also, remember to add compatibility in the client v2
+			if idx == -1 {
+				if addHistoricalMetrics {
+					// Use the previousIdx to make a copy
+					if previousIdx != -1 && previousID == *metricDataResult.ID {
+						// Create a new CloudwatchData object
+						newData := *getMetricDatas[previousIdx]
+						newData.GetMetricDataPoint = metricDataResult.Datapoint
+						newData.GetMetricDataTimestamps = metricDataResult.Timestamp
 
-			input := getMetricDatas[start:end]
-			data := clientCloudwatch.GetMetricData(gCtx, logger, input, svc.Namespace, length, job.Delay, job.RoundingPeriod)
-			if data != nil {
-				mu.Lock()
-				getMetricDataOutput = append(getMetricDataOutput, data)
-				mu.Unlock()
-			} else {
-				logger.Warn("GetMetricData partition empty result", "start", start, "end", end, "partitionNum", partitionNum)
+						getMetricDatas = append(getMetricDatas, &newData)
+					} else {
+						logger.Warn("GetMetricData returned unknown metric ID", "metric_id", *metricDataResult.ID)
+					}
+				} else {
+					logger.Warn("GetMetricData returned unknown metric ID", "metric_id", *metricDataResult.ID)
+				}
+				continue
 			}
-
-			return nil
-		})
+			getMetricDatas[idx].GetMetricDataPoint = metricDataResult.Datapoint
+			getMetricDatas[idx].GetMetricDataTimestamps = metricDataResult.Timestamp
+			getMetricDatas[idx].MetricID = nil // mark as processed
+			previousIdx = idx
+			previousID = *metricDataResult.ID
+		}
 	}
 
 	if err = g.Wait(); err != nil {
