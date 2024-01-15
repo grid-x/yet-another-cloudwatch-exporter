@@ -3,10 +3,10 @@ steps:
   key: "test"
   command:
   - "echo -e 'Lint'"
-  - "docker compose --file docker-compose.buildkite.yml up lint"
+  - "docker compose --file docker-compose.buildkite.yml up --exit-code-from lint"
   - "echo -e 'Test'"
-  - "docker compose --file docker-compose.buildkite.yml up test"
+  - "docker compose --file docker-compose.buildkite.yml up --exit-code-from test"
   - "echo -e 'Clean'"
   - "docker compose --file docker-compose.buildkite.yml down -v --remove-orphans"
   agents:
-  - "queue=default"
+  - "queue=public"
