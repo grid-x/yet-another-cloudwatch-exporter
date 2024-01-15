@@ -9,4 +9,4 @@ steps:
   - "echo -e 'Clean'"
   - "docker compose --file docker-compose.buildkite.yml down -v --remove-orphans"
   agents:
-  - "queue=default"
+  - "queue=public"
