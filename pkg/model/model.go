@@ -29,6 +29,7 @@ type DiscoveryJob struct {
 	Metrics                   []*MetricConfig
 	RoundingPeriod            *int64
 	RecentlyActiveOnly        bool
+	AddHistoricalMetrics      *bool
 	ExportedTagsOnMetrics     []string
 	JobLevelMetricFields
 }
@@ -52,6 +53,7 @@ type CustomNamespaceJob struct {
 	Metrics                   []*MetricConfig
 	CustomTags                []Tag
 	DimensionNameRequirements []string
+	AddHistoricalMetrics      *bool
 	RoundingPeriod            *int64
 	JobLevelMetricFields
 }
@@ -147,6 +149,7 @@ type CloudwatchData struct {
 	GetMetricDataTimestamps time.Time
 	NilToZero               *bool
 	AddCloudwatchTimestamp  *bool
+	AddHistoricalMetrics    *bool
 	Tags                    []Tag
 	Dimensions              []*Dimension
 	Period                  int64
