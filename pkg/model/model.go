@@ -31,6 +31,7 @@ type DiscoveryJob struct {
 	RecentlyActiveOnly          bool
 	ExportedTagsOnMetrics       []string
 	IncludeContextOnInfoMetrics bool
+	DimensionsRegexps           []DimensionsRegexp
 	JobLevelMetricFields
 }
 
@@ -82,6 +83,11 @@ type MetricConfig struct {
 	NilToZero              *bool
 	AddHistoricalMetrics   *bool
 	AddCloudwatchTimestamp *bool
+}
+
+type DimensionsRegexp struct {
+	Regexp          *regexp.Regexp
+	DimensionsNames []string
 }
 
 type LabelSet map[string]struct{}
