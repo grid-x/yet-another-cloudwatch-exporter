@@ -217,6 +217,11 @@ func getMetricDataForQueries(
 	var wg sync.WaitGroup
 	wg.Add(len(discoveryJob.Metrics))
 
+	var addHistoricalMetrics bool
+	if discoveryJob.AddHistoricalMetrics != nil {
+		addHistoricalMetrics = *discoveryJob.AddHistoricalMetrics
+	}
+
 	// For every metric of the job call the ListMetrics API
 	// to fetch the existing combinations of dimensions and
 	// value of dimensions with data.
@@ -227,7 +232,7 @@ func getMetricDataForQueries(
 			assoc := maxdimassociator.NewAssociator(logger, svc.DimensionRegexps, resources)
 
 			err := clientCloudwatch.ListMetrics(ctx, svc.Namespace, metric, discoveryJob.RecentlyActiveOnly, func(page []*model.Metric) {
-				data := getFilteredMetricDatas(logger, discoveryJob.Type, discoveryJob.ExportedTagsOnMetrics, page, discoveryJob.DimensionNameRequirements, metric, assoc)
+				data := getFilteredMetricDatas(logger, discoveryJob.Type, discoveryJob.ExportedTagsOnMetrics, page, discoveryJob.DimensionNameRequirements, addHistoricalMetrics, metric, assoc)
 
 				mux.Lock()
 				getMetricDatas = append(getMetricDatas, data...)
@@ -250,6 +255,7 @@ func getFilteredMetricDatas(
 	tagsOnMetrics []string,
 	metricsList []*model.Metric,
 	dimensionNameList []string,
+	addHistoricalMetrics bool,
 	m *model.MetricConfig,
 	assoc resourceAssociator,
 ) []*model.CloudwatchData {
@@ -291,6 +297,7 @@ func getFilteredMetricDatas(
 				Statistics:             []string{stats},
 				NilToZero:              m.NilToZero,
 				AddCloudwatchTimestamp: m.AddCloudwatchTimestamp,
+				AddHistoricalMetrics:   &addHistoricalMetrics,
 				Tags:                   metricTags,
 				Dimensions:             cwMetric.Dimensions,
 				Period:                 m.Period,
