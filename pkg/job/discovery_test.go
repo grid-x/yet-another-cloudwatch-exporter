@@ -448,6 +448,7 @@ func Test_getFilteredMetricDatas(t *testing.T) {
 func getSampleMetricDatas(id string) *model.CloudwatchData {
 	return &model.CloudwatchData{
 		AddCloudwatchTimestamp: aws.Bool(false),
+		AddHistoricalMetrics:   aws.Bool(false),
 		Dimensions: []*model.Dimension{
 			{
 				Name:  "FileSystemId",
@@ -547,8 +548,13 @@ func doBench(b *testing.B, metricsPerQuery, testResourcesCount, metricsPerResour
 		for i := 0; i < testResourcesCount; i++ {
 			datas = append(datas, getSampleMetricDatas(testResourceIDs[i]))
 		}
+		addHistoricalMetrics := false
+		getMetricDatas := []*model.CloudwatchData{}
+		for i := 0; i < testResourcesCount; i++ {
+			getMetricDatas = append(getMetricDatas, getSampleMetricDatas(testResourceIDs[i]))
+		}
 		// re-start timer
 		b.StartTimer()
-		mapResultsToMetricDatas(outputs, datas, logging.NewNopLogger())
+		mapResultsToMetricDatas(outputs, datas, getMetricDatas, addHistoricalMetrics, logging.NewNopLogger())
 	}
 }
