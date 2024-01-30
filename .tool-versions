@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 golang 1.22
+=======
+golang 1.21.0
+>>>>>>> 0720091 (chore: support historical data points (#6))

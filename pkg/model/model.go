@@ -20,6 +20,7 @@ type JobsConfig struct {
 }
 
 type DiscoveryJob struct {
+<<<<<<< HEAD
 	Regions                     []string
 	Type                        string
 	Roles                       []Role
@@ -32,6 +33,19 @@ type DiscoveryJob struct {
 	ExportedTagsOnMetrics       []string
 	IncludeContextOnInfoMetrics bool
 	DimensionsRegexps           []DimensionsRegexp
+=======
+	Regions                   []string
+	Type                      string
+	Roles                     []Role
+	SearchTags                []Tag
+	CustomTags                []Tag
+	DimensionNameRequirements []string
+	Metrics                   []*MetricConfig
+	RoundingPeriod            *int64
+	RecentlyActiveOnly        bool
+	AddHistoricalMetrics      *bool
+	ExportedTagsOnMetrics     []string
+>>>>>>> 0720091 (chore: support historical data points (#6))
 	JobLevelMetricFields
 }
 
@@ -54,6 +68,7 @@ type CustomNamespaceJob struct {
 	Metrics                   []*MetricConfig
 	CustomTags                []Tag
 	DimensionNameRequirements []string
+	AddHistoricalMetrics      *bool
 	RoundingPeriod            *int64
 	JobLevelMetricFields
 }
@@ -64,6 +79,7 @@ type JobLevelMetricFields struct {
 	Length                 int64
 	Delay                  int64
 	NilToZero              *bool
+	AddHistoricalMetrics   *bool
 	AddCloudwatchTimestamp *bool
 }
 
@@ -79,6 +95,7 @@ type MetricConfig struct {
 	Length                 int64
 	Delay                  int64
 	NilToZero              *bool
+	AddHistoricalMetrics   *bool
 	AddCloudwatchTimestamp *bool
 }
 
@@ -164,6 +181,7 @@ type CloudwatchData struct {
 	GetMetricDataTimestamps time.Time
 	NilToZero               *bool
 	AddCloudwatchTimestamp  *bool
+	AddHistoricalMetrics    *bool
 	Tags                    []Tag
 	Dimensions              []*Dimension
 	Period                  int64

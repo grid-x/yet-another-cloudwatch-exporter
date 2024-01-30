@@ -38,6 +38,11 @@ func runCustomNamespaceJob(
 
 	wg.Add(partition)
 
+	var addHistoricalMetrics bool
+	if job.AddHistoricalMetrics != nil {
+		addHistoricalMetrics = *job.AddHistoricalMetrics
+	}
+
 	for i := 0; i < metricDataLength; i += maxMetricCount {
 		go func(i int) {
 			defer wg.Done()
@@ -47,7 +52,7 @@ func runCustomNamespaceJob(
 				end = metricDataLength
 			}
 			input := getMetricDatas[i:end]
-			data := clientCloudwatch.GetMetricData(ctx, logger, input, job.Namespace, length, job.Delay, job.RoundingPeriod)
+			data := clientCloudwatch.GetMetricData(ctx, logger, input, job.Namespace, length, job.Delay, job.RoundingPeriod, addHistoricalMetrics)
 
 			if data != nil {
 				output := make([]*model.CloudwatchData, 0)

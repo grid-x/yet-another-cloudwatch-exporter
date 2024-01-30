@@ -40,6 +40,7 @@ type JobLevelMetricFields struct {
 	Delay                  int64    `yaml:"delay"`
 	NilToZero              *bool    `yaml:"nilToZero"`
 	AddCloudwatchTimestamp *bool    `yaml:"addCloudwatchTimestamp"`
+	AddHistoricalMetrics   *bool    `yaml:"addHistoricalMetrics"`
 }
 
 type Job struct {
