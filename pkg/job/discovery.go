@@ -64,14 +64,18 @@ func runDiscoveryJob(
 	partitionSize := int(math.Ceil(float64(metricDataLength) / float64(maxMetricCount)))
 	logger.Debug("GetMetricData partitions", "size", partitionSize)
 
-	g, gCtx := errgroup.WithContext(ctx)
+	g, _ := errgroup.WithContext(ctx)
 	// TODO: don't know if this is ok, double check, and should work for either per-api and single cl
 	g.SetLimit(cloudwatchConcurrency.GetMetricData)
 
 	mu := sync.Mutex{}
 	getMetricDataOutput := make([][]cloudwatch.MetricDataResult, 0, partitionSize)
-
 	count := 0
+
+	var addHistoricalMetrics bool
+	if job.AddHistoricalMetrics != nil {
+		addHistoricalMetrics = *job.AddHistoricalMetrics
+	}
 
 	for i := 0; i < metricDataLength; i += maxMetricCount {
 		start := i
@@ -86,7 +90,7 @@ func runDiscoveryJob(
 			logger.Debug("GetMetricData partition", "start", start, "end", end, "partitionNum", partitionNum)
 
 			input := getMetricDatas[start:end]
-			data := clientCloudwatch.GetMetricData(gCtx, logger, input, svc.Namespace, length, job.Delay, job.RoundingPeriod)
+			data := clientCloudwatch.GetMetricData(ctx, logger, input, svc.Namespace, length, job.Delay, job.RoundingPeriod, addHistoricalMetrics)
 			if data != nil {
 				mu.Lock()
 				getMetricDataOutput = append(getMetricDataOutput, data)
@@ -104,7 +108,7 @@ func runDiscoveryJob(
 		return nil, nil
 	}
 
-	mapResultsToMetricDatas(getMetricDataOutput, getMetricDatas, logger)
+	mapResultsToMetricDatas(getMetricDataOutput, getMetricDatas, getMetricDatas, addHistoricalMetrics, logger)
 
 	// Remove unprocessed/unknown elements in place, if any. Since getMetricDatas
 	// is a slice of pointers, the compaction can be easily done in-place.
@@ -117,7 +121,7 @@ func runDiscoveryJob(
 // mapResultsToMetricDatas walks over all CW GetMetricData results, and map each one with the corresponding model.CloudwatchData.
 //
 // This has been extracted into a separate function to make benchmarking easier.
-func mapResultsToMetricDatas(output [][]cloudwatch.MetricDataResult, datas []*model.CloudwatchData, logger logging.Logger) {
+func mapResultsToMetricDatas(output [][]cloudwatch.MetricDataResult, datas []*model.CloudwatchData, getMetricDatas []*model.CloudwatchData, addHistoricalMetrics bool, logger logging.Logger) {
 	// metricIDToData is a support structure used to easily find via a MetricID, the corresponding
 	// model.CloudatchData.
 	metricIDToData := make(map[string]*model.CloudwatchData, len(datas))
@@ -138,11 +142,28 @@ func mapResultsToMetricDatas(output [][]cloudwatch.MetricDataResult, datas []*mo
 		if data == nil {
 			continue
 		}
+		previousIdx := -1
+		previousID := ""
 		for _, metricDataResult := range data {
 			// find into index
 			metricData, ok := metricIDToData[metricDataResult.ID]
+			idx := findGetMetricDataByID(getMetricDatas, metricDataResult.ID)
 			if !ok {
-				logger.Warn("GetMetricData returned unknown metric ID", "metric_id", metricDataResult.ID)
+				if addHistoricalMetrics {
+					// Use the previousIdx to make a copy
+					if previousIdx != -1 && previousID == metricDataResult.ID {
+						// Create a new CloudwatchData object
+						newData := *getMetricDatas[previousIdx]
+						newData.GetMetricDataPoint = &metricDataResult.Datapoint
+						newData.GetMetricDataTimestamps = metricDataResult.Timestamp
+
+						getMetricDatas = append(getMetricDatas, &newData)
+					} else {
+						logger.Warn("GetMetricData returned unknown metric ID", "metric_id", metricDataResult.ID)
+					}
+				} else {
+					logger.Warn("GetMetricData returned unknown metric ID", "metric_id", metricDataResult.ID)
+				}
 				continue
 			}
 			// skip elements that have been already mapped but still exist in metricIDToData
@@ -154,8 +175,22 @@ func mapResultsToMetricDatas(output [][]cloudwatch.MetricDataResult, datas []*mo
 			metricData.GetMetricDataPoint = &dataPoint
 			metricData.GetMetricDataTimestamps = metricDataResult.Timestamp
 			metricData.MetricID = nil // mark as processed
+			previousIdx = idx
+			previousID = metricDataResult.ID
 		}
 	}
+}
+
+func findGetMetricDataByID(getMetricDatas []*model.CloudwatchData, value string) int {
+	for i := 0; i < len(getMetricDatas); i++ {
+		if getMetricDatas[i].MetricID == nil {
+			continue // skip elements that have been already marked
+		}
+		if *(getMetricDatas[i].MetricID) == value {
+			return i
+		}
+	}
+	return -1
 }
 
 func getMetricDataInputLength(metrics []*model.MetricConfig) int64 {
@@ -182,6 +217,11 @@ func getMetricDataForQueries(
 	var wg sync.WaitGroup
 	wg.Add(len(discoveryJob.Metrics))
 
+	var addHistoricalMetrics bool
+	if discoveryJob.AddHistoricalMetrics != nil {
+		addHistoricalMetrics = *discoveryJob.AddHistoricalMetrics
+	}
+
 	// For every metric of the job call the ListMetrics API
 	// to fetch the existing combinations of dimensions and
 	// value of dimensions with data.
@@ -192,7 +232,7 @@ func getMetricDataForQueries(
 			assoc := maxdimassociator.NewAssociator(logger, svc.DimensionRegexps, resources)
 
 			err := clientCloudwatch.ListMetrics(ctx, svc.Namespace, metric, discoveryJob.RecentlyActiveOnly, func(page []*model.Metric) {
-				data := getFilteredMetricDatas(logger, discoveryJob.Type, discoveryJob.ExportedTagsOnMetrics, page, discoveryJob.DimensionNameRequirements, metric, assoc)
+				data := getFilteredMetricDatas(logger, discoveryJob.Type, discoveryJob.ExportedTagsOnMetrics, page, discoveryJob.DimensionNameRequirements, addHistoricalMetrics, metric, assoc)
 
 				mux.Lock()
 				getMetricDatas = append(getMetricDatas, data...)
@@ -215,6 +255,7 @@ func getFilteredMetricDatas(
 	tagsOnMetrics []string,
 	metricsList []*model.Metric,
 	dimensionNameList []string,
+	addHistoricalMetrics bool,
 	m *model.MetricConfig,
 	assoc resourceAssociator,
 ) []*model.CloudwatchData {
@@ -256,6 +297,7 @@ func getFilteredMetricDatas(
 				Statistics:             []string{stats},
 				NilToZero:              m.NilToZero,
 				AddCloudwatchTimestamp: m.AddCloudwatchTimestamp,
+				AddHistoricalMetrics:   &addHistoricalMetrics,
 				Tags:                   metricTags,
 				Dimensions:             cwMetric.Dimensions,
 				Period:                 m.Period,
