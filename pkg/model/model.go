@@ -20,16 +20,17 @@ type JobsConfig struct {
 }
 
 type DiscoveryJob struct {
-	Regions                     []string
-	Type                        string
-	Roles                       []Role
-	SearchTags                  []SearchTag
-	CustomTags                  []Tag
-	DimensionNameRequirements   []string
-	Metrics                     []*MetricConfig
-	RoundingPeriod              *int64
-	RecentlyActiveOnly          bool
-	ExportedTagsOnMetrics       []string
+	Regions                   []string
+	Type                      string
+	Roles                     []Role
+	SearchTags                []Tag
+	CustomTags                []Tag
+	DimensionNameRequirements []string
+	Metrics                   []*MetricConfig
+	RoundingPeriod            *int64
+	RecentlyActiveOnly        bool
+	AddHistoricalMetrics      *bool
+	ExportedTagsOnMetrics     []string
 	IncludeContextOnInfoMetrics bool
 	DimensionsRegexps           []DimensionsRegexp
 	JobLevelMetricFields
