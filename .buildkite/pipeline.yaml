@@ -2,11 +2,17 @@ steps:
 - label: ":go: Build & Test"
   key: "test"
   command:
-  - "echo -e 'Lint'"
-  - "docker compose --file docker-compose.buildkite.yml up --exit-code-from lint"
-  - "echo -e 'Test'"
-  - "docker compose --file docker-compose.buildkite.yml up --exit-code-from test"
-  - "echo -e 'Clean'"
-  - "docker compose --file docker-compose.buildkite.yml down -v --remove-orphans"
+  - "make ci_test"
   agents:
-  - "queue=public"
+  - "queue=default"
+- wait # >
+- label: ":docker: Build & Push"
+  key: "push"
+  branches:
+  - master
+  depends_on:
+  - test
+  command:
+  - "make ci_build"
+  agents:
+  - "queue=default"
