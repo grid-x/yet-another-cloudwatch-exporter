@@ -154,7 +154,7 @@ func mapResultsToMetricDatas(output [][]cloudwatch.MetricDataResult, datas []*mo
 					if previousIdx != -1 && previousID == metricDataResult.ID {
 						// Create a new CloudwatchData object
 						newData := *getMetricDatas[previousIdx]
-						newData.GetMetricDataPoint = &metricDataResult.Datapoint
+						newData.GetMetricDataPoint = metricDataResult.Datapoint
 						newData.GetMetricDataTimestamps = metricDataResult.Timestamp
 
 						getMetricDatas = append(getMetricDatas, &newData)

@@ -640,9 +640,10 @@ func Test_mapResultsToMetricDatas(t *testing.T) {
 			},
 		},
 	}
+	addHistoricalMetrics := false
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mapResultsToMetricDatas(tt.args.metricDataResults, tt.args.cloudwatchDatas, logging.NewNopLogger())
+			mapResultsToMetricDatas(tt.args.metricDataResults, tt.args.cloudwatchDatas, tt.args.cloudwatchDatas, addHistoricalMetrics, logging.NewNopLogger())
 			// mapResultsToMetricDatas() modifies its []*model.CloudwatchData parameter in-place, assert that it was updated
 			require.Equal(t, tt.wantCloudwatchDatas, tt.args.cloudwatchDatas)
 		})

@@ -84,7 +84,7 @@ func Test_toMetricDataResult(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			metricDataResults := toMetricDataResult(tc.getMetricDataOutput)
+			metricDataResults := toMetricDataResult(tc.getMetricDataOutput, false)
 			require.Equal(t, tc.expectedMetricDataResults, metricDataResults)
 		})
 	}
