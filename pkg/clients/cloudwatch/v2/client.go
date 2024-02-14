@@ -121,6 +121,7 @@ func (c client) GetMetricData(ctx context.Context, logger logging.Logger, getMet
 func toMetricDataResult(resp cloudwatch.GetMetricDataOutput, addHistoricalMetrics bool) []cloudwatch_client.MetricDataResult {
 	output := make([]cloudwatch_client.MetricDataResult, 0, len(resp.MetricDataResults))
 	for _, metricDataResult := range resp.MetricDataResults {
+<<<<<<< HEAD
 		for i := 0; i < len(metricDataResult.Values); i++ {
 			mappedResult := cloudwatch_client.MetricDataResult{ID: *metricDataResult.Id}
 			mappedResult.Datapoint = metricDataResult.Values[i]
@@ -129,6 +130,12 @@ func toMetricDataResult(resp cloudwatch.GetMetricDataOutput, addHistoricalMetric
 			if !addHistoricalMetrics {
 				break
 			}
+=======
+		mappedResult := cloudwatch_client.MetricDataResult{ID: *metricDataResult.Id}
+		if len(metricDataResult.Values) > 0 {
+			mappedResult.Datapoint = &metricDataResult.Values[0]
+			mappedResult.Timestamp = metricDataResult.Timestamps[0]
+>>>>>>> 340e810 (Restore default behaviour of returning nil/absent metrics as NaN (#1288))
 		}
 	}
 	return output
