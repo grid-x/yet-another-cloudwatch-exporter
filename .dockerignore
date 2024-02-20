@@ -1,6 +1,4 @@
 .envrc
-.git
-.gitignore
 docker-compose.yml
 Dockerfile
 Jenkinsfile
