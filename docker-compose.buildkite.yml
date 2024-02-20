@@ -6,6 +6,7 @@ services:
       target: builder
       args:
         VERSION: "0.56.0"
+        CGO_ENABLED: "1"
     command: make lint
 
   test:
@@ -15,5 +16,6 @@ services:
       target: builder
       args:
         VERSION: "0.56.0"
+        CGO_ENABLED: "1"
     command: make test
 

@@ -28,6 +28,6 @@ ci_test:
 
 ci_build:
 	@echo "--- Building production image :package:"
-	docker build -t ${IMAGE_URL} --no-cache -f Dockerfile .
+	docker build -t ${IMAGE_URL} --build-arg="CGO_ENABLED=0 --no-cache -f Dockerfile .
 	@echo "--- Pushing production image :envelope:"
 	docker push ${IMAGE_URL}
