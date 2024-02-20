@@ -135,7 +135,6 @@ func toMetricDataResult(resp cloudwatch.GetMetricDataOutput, addHistoricalMetric
 			output = append(output, mappedResult)
 		}
 	}
-}
 	return output
 }
 
