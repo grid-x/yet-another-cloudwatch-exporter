@@ -121,14 +121,18 @@ func (c client) GetMetricData(ctx context.Context, logger logging.Logger, getMet
 func toMetricDataResult(resp cloudwatch.GetMetricDataOutput, addHistoricalMetrics bool) []cloudwatch_client.MetricDataResult {
 	output := make([]cloudwatch_client.MetricDataResult, 0, len(resp.MetricDataResults))
 	for _, metricDataResult := range resp.MetricDataResults {
-		for i := 0; i < len(metricDataResult.Values); i++ {
-			mappedResult := cloudwatch_client.MetricDataResult{ID: *metricDataResult.Id}
-			mappedResult.Datapoint = metricDataResult.Values[i]
-			mappedResult.Timestamp = metricDataResult.Timestamps[i]
-			output = append(output, mappedResult)
-			if !addHistoricalMetrics {
-				break
+		mappedResult := cloudwatch_client.MetricDataResult{ID: *metricDataResult.Id}
+		if len(metricDataResult.Values) > 0 {
+			for i := 0; i < len(metricDataResult.Values); i++ {
+				mappedResult.Datapoint = &metricDataResult.Values[i]
+				mappedResult.Timestamp = metricDataResult.Timestamps[i]
+				output = append(output, mappedResult)
+				if !addHistoricalMetrics {
+					break
+				}
 			}
+		} else {
+			output = append(output, mappedResult)
 		}
 	}
 	return output
