@@ -8,8 +8,7 @@ RUN go mod download
 COPY . ./
 
 ENV GOOS linux
-ARG CGO_ENABLED
-ENV CGO_ENABLED=$CGO_ENABLED
+ENV CGO_ENABLED=0
 
 ARG VERSION
 RUN go build -v -ldflags "-X main.version=$VERSION" -o yace ./cmd/yace

@@ -13,7 +13,7 @@ build:
 	go build -v -ldflags "$(GO_LDFLAGS)" -o yace ./cmd/yace
 
 test:
-	go test -v -bench=^$$ -race -count=1 ./...
+	go test -v -bench=^$$ -count=1 ./...
 
 lint:
 	golangci-lint run -v -c .golangci.yml
@@ -28,6 +28,6 @@ ci_test:
 
 ci_build:
 	@echo "--- Building production image :package:"
-	docker build -t ${IMAGE_URL} --build-arg="CGO_ENABLED=0 --no-cache -f Dockerfile .
+	docker build -t ${IMAGE_URL} --no-cache -f Dockerfile .
 	@echo "--- Pushing production image :envelope:"
 	docker push ${IMAGE_URL}
