@@ -10,8 +10,8 @@ steps:
   key: "push"
   # branches:
   # - master
-  depends_on:
-  - test
+  # depends_on:
+  # - test
   command:
   - "make ci_build"
   agents:
