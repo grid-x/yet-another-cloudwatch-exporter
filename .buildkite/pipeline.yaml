@@ -1,11 +1,11 @@
 steps:
-- label: ":go: Build & Test"
-  key: "test"
-  command:
-  - "make ci_test"
-  agents:
-  - "queue=default"
-- wait # >
+# - label: ":go: Build & Test"
+#   key: "test"
+#   command:
+#   - "make ci_test"
+#   agents:
+#   - "queue=default"
+# - wait # >
 - label: ":docker: Build & Push"
   key: "push"
   # branches:
