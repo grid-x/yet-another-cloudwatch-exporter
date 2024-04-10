@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/prometheusservice/prometheusserviceiface"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi/resourcegroupstaggingapiiface"
-	"github.com/aws/aws-sdk-go/service/shield/shieldiface"
 	"github.com/aws/aws-sdk-go/service/storagegateway/storagegatewayiface"
 
 	"github.com/nerdswords/yet-another-cloudwatch-exporter/pkg/clients/tagging"
@@ -33,7 +32,6 @@ type client struct {
 	dmsAPI            databasemigrationserviceiface.DatabaseMigrationServiceAPI
 	prometheusSvcAPI  prometheusserviceiface.PrometheusServiceAPI
 	storageGatewayAPI storagegatewayiface.StorageGatewayAPI
-	shieldAPI         shieldiface.ShieldAPI
 }
 
 func NewClient(
@@ -46,7 +44,6 @@ func NewClient(
 	dmsClient databasemigrationserviceiface.DatabaseMigrationServiceAPI,
 	prometheusClient prometheusserviceiface.PrometheusServiceAPI,
 	storageGatewayAPI storagegatewayiface.StorageGatewayAPI,
-	shieldAPI shieldiface.ShieldAPI,
 ) tagging.Client {
 	return &client{
 		logger:            logger,
@@ -58,38 +55,19 @@ func NewClient(
 		dmsAPI:            dmsClient,
 		prometheusSvcAPI:  prometheusClient,
 		storageGatewayAPI: storageGatewayAPI,
-		shieldAPI:         shieldAPI,
 	}
 }
 
-func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region string) ([]*model.TaggedResource, error) {
+func (c client) GetResources(ctx context.Context, job *config.Job, region string) ([]*model.TaggedResource, error) {
 	svc := config.SupportedServices.GetService(job.Type)
 	var resources []*model.TaggedResource
 	shouldHaveDiscoveredResources := false
 
 	if len(svc.ResourceFilters) > 0 {
 		shouldHaveDiscoveredResources = true
-
-		var tagFilters []*resourcegroupstaggingapi.TagFilter
-		if len(job.SearchTags) > 0 {
-			for i := range job.SearchTags {
-				// Because everything with the AWS APIs is pointers we need a pointer to the `Key` field from the SearchTag.
-				// We can't take a pointer to any fields from loop variable or the pointer will always be the same and this logic will be broken.
-				st := job.SearchTags[i]
-
-				// AWS's GetResources has a TagFilter option which matches the semantics of our SearchTags where all filters must match
-				// Their value matching implementation is different though so instead of mapping the Key and Value we only map the Keys.
-				// Their API docs say, "If you don't specify a value for a key, the response returns all resources that are tagged with that key, with any or no value."
-				// which makes this a safe way to reduce the amount of data we need to filter out.
-				// https://docs.aws.amazon.com/resourcegroupstagging/latest/APIReference/API_GetResources.html#resourcegrouptagging-GetResources-request-TagFilters
-				tagFilters = append(tagFilters, &resourcegroupstaggingapi.TagFilter{Key: &st.Key})
-			}
-		}
-
 		inputparams := &resourcegroupstaggingapi.GetResourcesInput{
 			ResourceTypeFilters: svc.ResourceFilters,
 			ResourcesPerPage:    aws.Int64(100), // max allowed value according to API docs
-			TagFilters:          tagFilters,
 		}
 		pageNum := 0
 
@@ -124,7 +102,7 @@ func (c client) GetResources(ctx context.Context, job model.DiscoveryJob, region
 		c.logger.Debug("GetResourcesPages finished", "total", len(resources))
 	}
 
-	if ext, ok := ServiceFilters[svc.Namespace]; ok {
+	if ext, ok := serviceFilters[svc.Namespace]; ok {
 		if ext.ResourceFunc != nil {
 			shouldHaveDiscoveredResources = true
 			newResources, err := ext.ResourceFunc(ctx, c, job, region)

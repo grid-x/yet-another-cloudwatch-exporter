@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/grafana/regexp"
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 
 	"github.com/nerdswords/yet-another-cloudwatch-exporter/pkg/logging"
@@ -22,15 +22,8 @@ type ScrapeConf struct {
 }
 
 type Discovery struct {
-	ExportedTagsOnMetrics ExportedTagsOnMetrics `yaml:"exportedTagsOnMetrics"`
-	Jobs                  []*Job                `yaml:"jobs"`
-}
-
-type ExportedTagsOnMetrics map[string][]string
-
-type Tag struct {
-	Key   string `yaml:"key"`
-	Value string `yaml:"value"`
+	ExportedTagsOnMetrics model.ExportedTagsOnMetrics `yaml:"exportedTagsOnMetrics"`
+	Jobs                  []*Job                      `yaml:"jobs"`
 }
 
 type JobLevelMetricFields struct {
@@ -44,17 +37,16 @@ type JobLevelMetricFields struct {
 }
 
 type Job struct {
-	Regions                     []string  `yaml:"regions"`
-	Type                        string    `yaml:"type"`
-	Roles                       []Role    `yaml:"roles"`
-	SearchTags                  []Tag     `yaml:"searchTags"`
-	CustomTags                  []Tag     `yaml:"customTags"`
-	DimensionNameRequirements   []string  `yaml:"dimensionNameRequirements"`
-	Metrics                     []*Metric `yaml:"metrics"`
-	RoundingPeriod              *int64    `yaml:"roundingPeriod"`
-	RecentlyActiveOnly          bool      `yaml:"recentlyActiveOnly"`
-	IncludeContextOnInfoMetrics bool      `yaml:"includeContextOnInfoMetrics"`
-	JobLevelMetricFields        `yaml:",inline"`
+	Regions                   []string    `yaml:"regions"`
+	Type                      string      `yaml:"type"`
+	Roles                     []Role      `yaml:"roles"`
+	SearchTags                []model.Tag `yaml:"searchTags"`
+	CustomTags                []model.Tag `yaml:"customTags"`
+	DimensionNameRequirements []string    `yaml:"dimensionNameRequirements"`
+	Metrics                   []*Metric   `yaml:"metrics"`
+	RoundingPeriod            *int64      `yaml:"roundingPeriod"`
+	RecentlyActiveOnly        bool        `yaml:"recentlyActiveOnly"`
+	JobLevelMetricFields      `yaml:",inline"`
 }
 
 type Static struct {
@@ -62,21 +54,21 @@ type Static struct {
 	Regions    []string    `yaml:"regions"`
 	Roles      []Role      `yaml:"roles"`
 	Namespace  string      `yaml:"namespace"`
-	CustomTags []Tag       `yaml:"customTags"`
+	CustomTags []model.Tag `yaml:"customTags"`
 	Dimensions []Dimension `yaml:"dimensions"`
 	Metrics    []*Metric   `yaml:"metrics"`
 }
 
 type CustomNamespace struct {
-	Regions                   []string  `yaml:"regions"`
-	Name                      string    `yaml:"name"`
-	Namespace                 string    `yaml:"namespace"`
-	RecentlyActiveOnly        bool      `yaml:"recentlyActiveOnly"`
-	Roles                     []Role    `yaml:"roles"`
-	Metrics                   []*Metric `yaml:"metrics"`
-	CustomTags                []Tag     `yaml:"customTags"`
-	DimensionNameRequirements []string  `yaml:"dimensionNameRequirements"`
-	RoundingPeriod            *int64    `yaml:"roundingPeriod"`
+	Regions                   []string    `yaml:"regions"`
+	Name                      string      `yaml:"name"`
+	Namespace                 string      `yaml:"namespace"`
+	RecentlyActiveOnly        bool        `yaml:"recentlyActiveOnly"`
+	Roles                     []Role      `yaml:"roles"`
+	Metrics                   []*Metric   `yaml:"metrics"`
+	CustomTags                []model.Tag `yaml:"customTags"`
+	DimensionNameRequirements []string    `yaml:"dimensionNameRequirements"`
+	RoundingPeriod            *int64      `yaml:"roundingPeriod"`
 	JobLevelMetricFields      `yaml:",inline"`
 }
 
@@ -108,14 +100,14 @@ func (r *Role) ValidateRole(roleIdx int, parent string) error {
 	return nil
 }
 
-func (c *ScrapeConf) Load(file string, logger logging.Logger) (model.JobsConfig, error) {
+func (c *ScrapeConf) Load(file string, logger logging.Logger) error {
 	yamlFile, err := os.ReadFile(file)
 	if err != nil {
-		return model.JobsConfig{}, err
+		return err
 	}
 	err = yaml.Unmarshal(yamlFile, c)
 	if err != nil {
-		return model.JobsConfig{}, err
+		return err
 	}
 
 	logConfigErrors(yamlFile, logger)
@@ -138,19 +130,23 @@ func (c *ScrapeConf) Load(file string, logger logging.Logger) (model.JobsConfig,
 		}
 	}
 
-	return c.Validate()
+	err = c.Validate()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (c *ScrapeConf) Validate() (model.JobsConfig, error) {
+func (c *ScrapeConf) Validate() error {
 	if c.Discovery.Jobs == nil && c.Static == nil && c.CustomNamespace == nil {
-		return model.JobsConfig{}, fmt.Errorf("At least 1 Discovery job, 1 Static or one CustomNamespace must be defined")
+		return fmt.Errorf("At least 1 Discovery job, 1 Static or one CustomNamespace must be defined")
 	}
 
 	if c.Discovery.Jobs != nil {
 		for idx, job := range c.Discovery.Jobs {
 			err := job.validateDiscoveryJob(idx)
 			if err != nil {
-				return model.JobsConfig{}, err
+				return err
 			}
 		}
 	}
@@ -159,7 +155,7 @@ func (c *ScrapeConf) Validate() (model.JobsConfig, error) {
 		for idx, job := range c.CustomNamespace {
 			err := job.validateCustomNamespaceJob(idx)
 			if err != nil {
-				return model.JobsConfig{}, err
+				return err
 			}
 		}
 	}
@@ -168,15 +164,15 @@ func (c *ScrapeConf) Validate() (model.JobsConfig, error) {
 		for idx, job := range c.Static {
 			err := job.validateStaticJob(idx)
 			if err != nil {
-				return model.JobsConfig{}, err
+				return err
 			}
 		}
 	}
 	if c.APIVersion != "" && c.APIVersion != "v1alpha1" {
-		return model.JobsConfig{}, fmt.Errorf("unknown apiVersion value '%s'", c.APIVersion)
+		return fmt.Errorf("unknown apiVersion value '%s'", c.APIVersion)
 	}
 
-	return c.toModelConfig(), nil
+	return nil
 }
 
 func (j *Job) validateDiscoveryJob(jobIdx int) error {
@@ -194,8 +190,6 @@ func (j *Job) validateDiscoveryJob(jobIdx int) error {
 				return err
 			}
 		}
-	} else {
-		return fmt.Errorf("no IAM roles configured. If the current IAM role is desired, an empty Role should be configured")
 	}
 	if len(j.Regions) == 0 {
 		return fmt.Errorf("Discovery job [%s/%d]: Regions should not be empty", j.Type, jobIdx)
@@ -207,12 +201,6 @@ func (j *Job) validateDiscoveryJob(jobIdx int) error {
 		err := metric.validateMetric(metricIdx, parent, &j.JobLevelMetricFields)
 		if err != nil {
 			return err
-		}
-	}
-
-	for _, st := range j.SearchTags {
-		if _, err := regexp.Compile(st.Value); err != nil {
-			return fmt.Errorf("Discovery job [%s/%d]: search tag value for %s has invalid regex value %s: %w", j.Type, jobIdx, st.Key, st.Value, err)
 		}
 	}
 
@@ -233,8 +221,6 @@ func (j *CustomNamespace) validateCustomNamespaceJob(jobIdx int) error {
 				return err
 			}
 		}
-	} else {
-		return fmt.Errorf("no IAM roles configured. If the current IAM role is desired, an empty Role should be configured")
 	}
 	if j.Regions == nil || len(j.Regions) == 0 {
 		return fmt.Errorf("CustomNamespace job [%s/%d]: Regions should not be empty", j.Name, jobIdx)
@@ -266,8 +252,6 @@ func (j *Static) validateStaticJob(jobIdx int) error {
 				return err
 			}
 		}
-	} else {
-		return fmt.Errorf("no IAM roles configured. If the current IAM role is desired, an empty Role should be configured")
 	}
 	if len(j.Regions) == 0 {
 		return fmt.Errorf("Static job [%s/%d]: Regions should not be empty", j.Name, jobIdx)
@@ -297,8 +281,8 @@ func (m *Metric) validateMetric(metricIdx int, parent string, discovery *JobLeve
 	}
 
 	mPeriod := m.Period
-	if mPeriod == 0 {
-		if discovery != nil && discovery.Period != 0 {
+	if mPeriod == 0 && discovery != nil {
+		if discovery.Period != 0 {
 			mPeriod = discovery.Period
 		} else {
 			mPeriod = model.DefaultPeriodSeconds
@@ -308,8 +292,8 @@ func (m *Metric) validateMetric(metricIdx int, parent string, discovery *JobLeve
 		return fmt.Errorf("Metric [%s/%d] in %v: Period value should be a positive integer", m.Name, metricIdx, parent)
 	}
 	mLength := m.Length
-	if mLength == 0 {
-		if discovery != nil && discovery.Length != 0 {
+	if mLength == 0 && discovery != nil {
+		if discovery.Length != 0 {
 			mLength = discovery.Length
 		} else {
 			mLength = model.DefaultLengthSeconds
@@ -317,8 +301,8 @@ func (m *Metric) validateMetric(metricIdx int, parent string, discovery *JobLeve
 	}
 
 	mDelay := m.Delay
-	if mDelay == 0 {
-		if discovery != nil && discovery.Delay != 0 {
+	if mDelay == 0 && discovery != nil {
+		if discovery.Delay != 0 {
 			mDelay = discovery.Delay
 		} else {
 			mDelay = model.DefaultDelaySeconds
@@ -326,8 +310,8 @@ func (m *Metric) validateMetric(metricIdx int, parent string, discovery *JobLeve
 	}
 
 	mNilToZero := m.NilToZero
-	if mNilToZero == nil {
-		if discovery != nil && discovery.NilToZero != nil {
+	if mNilToZero == nil && discovery != nil {
+		if discovery.NilToZero != nil {
 			mNilToZero = discovery.NilToZero
 		} else {
 			mNilToZero = aws.Bool(false)
@@ -335,8 +319,8 @@ func (m *Metric) validateMetric(metricIdx int, parent string, discovery *JobLeve
 	}
 
 	mAddCloudwatchTimestamp := m.AddCloudwatchTimestamp
-	if mAddCloudwatchTimestamp == nil {
-		if discovery != nil && discovery.AddCloudwatchTimestamp != nil {
+	if mAddCloudwatchTimestamp == nil && discovery != nil {
+		if discovery.AddCloudwatchTimestamp != nil {
 			mAddCloudwatchTimestamp = discovery.AddCloudwatchTimestamp
 		} else {
 			mAddCloudwatchTimestamp = aws.Bool(false)
@@ -344,10 +328,9 @@ func (m *Metric) validateMetric(metricIdx int, parent string, discovery *JobLeve
 	}
 
 	if mLength < mPeriod {
-		return fmt.Errorf(
+		log.Warningf(
 			"Metric [%s/%d] in %v: length(%d) is smaller than period(%d). This can cause that the data requested is not ready and generate data gaps",
-			m.Name, metricIdx, parent, mLength, mPeriod,
-		)
+			m.Name, metricIdx, parent, mLength, mPeriod)
 	}
 	m.Length = mLength
 	m.Period = mPeriod
@@ -357,141 +340,6 @@ func (m *Metric) validateMetric(metricIdx int, parent string, discovery *JobLeve
 	m.Statistics = mStatistics
 
 	return nil
-}
-
-func (c *ScrapeConf) toModelConfig() model.JobsConfig {
-	jobsCfg := model.JobsConfig{}
-	jobsCfg.StsRegion = c.StsRegion
-
-	for _, discoveryJob := range c.Discovery.Jobs {
-		svc := SupportedServices.GetService(discoveryJob.Type)
-
-		job := model.DiscoveryJob{}
-		job.Regions = discoveryJob.Regions
-		job.Type = discoveryJob.Type
-		job.DimensionNameRequirements = discoveryJob.DimensionNameRequirements
-		job.RoundingPeriod = discoveryJob.RoundingPeriod
-		job.RecentlyActiveOnly = discoveryJob.RecentlyActiveOnly
-		job.Statistics = discoveryJob.Statistics
-		job.Period = discoveryJob.Period
-		job.Length = discoveryJob.Length
-		job.Delay = discoveryJob.Delay
-		job.NilToZero = discoveryJob.NilToZero
-		job.AddCloudwatchTimestamp = discoveryJob.AddCloudwatchTimestamp
-		job.Roles = toModelRoles(discoveryJob.Roles)
-		job.SearchTags = toModelSearchTags(discoveryJob.SearchTags)
-		job.CustomTags = toModelTags(discoveryJob.CustomTags)
-		job.Metrics = toModelMetricConfig(discoveryJob.Metrics)
-		job.IncludeContextOnInfoMetrics = discoveryJob.IncludeContextOnInfoMetrics
-		job.DimensionsRegexps = svc.ToModelDimensionsRegexp()
-
-		job.ExportedTagsOnMetrics = []string{}
-		if len(c.Discovery.ExportedTagsOnMetrics) > 0 {
-			if exportedTags, ok := c.Discovery.ExportedTagsOnMetrics[svc.Namespace]; ok {
-				job.ExportedTagsOnMetrics = exportedTags
-			} else if exportedTags, ok := c.Discovery.ExportedTagsOnMetrics[svc.Alias]; ok {
-				job.ExportedTagsOnMetrics = exportedTags
-			}
-		}
-
-		jobsCfg.DiscoveryJobs = append(jobsCfg.DiscoveryJobs, job)
-	}
-
-	for _, staticJob := range c.Static {
-		job := model.StaticJob{}
-		job.Name = staticJob.Name
-		job.Namespace = staticJob.Namespace
-		job.Regions = staticJob.Regions
-		job.Roles = toModelRoles(staticJob.Roles)
-		job.CustomTags = toModelTags(staticJob.CustomTags)
-		job.Dimensions = toModelDimensions(staticJob.Dimensions)
-		job.Metrics = toModelMetricConfig(staticJob.Metrics)
-		jobsCfg.StaticJobs = append(jobsCfg.StaticJobs, job)
-	}
-
-	for _, customNamespaceJob := range c.CustomNamespace {
-		job := model.CustomNamespaceJob{}
-		job.Regions = customNamespaceJob.Regions
-		job.Name = customNamespaceJob.Name
-		job.Namespace = customNamespaceJob.Namespace
-		job.DimensionNameRequirements = customNamespaceJob.DimensionNameRequirements
-		job.RoundingPeriod = customNamespaceJob.RoundingPeriod
-		job.RecentlyActiveOnly = customNamespaceJob.RecentlyActiveOnly
-		job.Statistics = customNamespaceJob.Statistics
-		job.Period = customNamespaceJob.Period
-		job.Length = customNamespaceJob.Length
-		job.Delay = customNamespaceJob.Delay
-		job.NilToZero = customNamespaceJob.NilToZero
-		job.AddCloudwatchTimestamp = customNamespaceJob.AddCloudwatchTimestamp
-		job.Roles = toModelRoles(customNamespaceJob.Roles)
-		job.CustomTags = toModelTags(customNamespaceJob.CustomTags)
-		job.Metrics = toModelMetricConfig(customNamespaceJob.Metrics)
-		jobsCfg.CustomNamespaceJobs = append(jobsCfg.CustomNamespaceJobs, job)
-	}
-
-	return jobsCfg
-}
-
-func toModelTags(tags []Tag) []model.Tag {
-	ret := make([]model.Tag, 0, len(tags))
-	for _, t := range tags {
-		ret = append(ret, model.Tag{
-			Key:   t.Key,
-			Value: t.Value,
-		})
-	}
-	return ret
-}
-
-func toModelSearchTags(tags []Tag) []model.SearchTag {
-	ret := make([]model.SearchTag, 0, len(tags))
-	for _, t := range tags {
-		// This should never panic as long as regex validation continues to happen before model mapping
-		r := regexp.MustCompile(t.Value)
-		ret = append(ret, model.SearchTag{
-			Key:   t.Key,
-			Value: r,
-		})
-	}
-	return ret
-}
-
-func toModelRoles(roles []Role) []model.Role {
-	ret := make([]model.Role, 0, len(roles))
-	for _, r := range roles {
-		ret = append(ret, model.Role{
-			RoleArn:    r.RoleArn,
-			ExternalID: r.ExternalID,
-		})
-	}
-	return ret
-}
-
-func toModelDimensions(dimensions []Dimension) []model.Dimension {
-	ret := make([]model.Dimension, 0, len(dimensions))
-	for _, d := range dimensions {
-		ret = append(ret, model.Dimension{
-			Name:  d.Name,
-			Value: d.Value,
-		})
-	}
-	return ret
-}
-
-func toModelMetricConfig(metrics []*Metric) []*model.MetricConfig {
-	ret := make([]*model.MetricConfig, 0, len(metrics))
-	for _, m := range metrics {
-		ret = append(ret, &model.MetricConfig{
-			Name:                   m.Name,
-			Statistics:             m.Statistics,
-			Period:                 m.Period,
-			Length:                 m.Length,
-			Delay:                  m.Delay,
-			NilToZero:              m.NilToZero,
-			AddCloudwatchTimestamp: m.AddCloudwatchTimestamp,
-		})
-	}
-	return ret
 }
 
 // logConfigErrors logs as warning any config unmarshalling error.

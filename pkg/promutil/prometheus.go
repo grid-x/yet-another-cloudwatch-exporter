@@ -22,10 +22,6 @@ var (
 		Name: "yace_cloudwatch_getmetricdata_requests_total",
 		Help: "Help is not implemented yet.",
 	})
-	CloudwatchGetMetricDataAPIMetricsCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "yace_cloudwatch_getmetricdata_metrics_total",
-		Help: "Help is not implemented yet.",
-	})
 	CloudwatchGetMetricStatisticsAPICounter = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "yace_cloudwatch_getmetricstatistics_requests_total",
 		Help: "Help is not implemented yet.",
@@ -50,10 +46,6 @@ var (
 	})
 	Ec2APICounter = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "yace_cloudwatch_ec2api_requests_total",
-		Help: "Help is not implemented yet.",
-	})
-	ShieldAPICounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "yace_cloudwatch_shieldapi_requests_total",
 		Help: "Help is not implemented yet.",
 	})
 	ManagedPrometheusAPICounter = prometheus.NewCounter(prometheus.CounterOpts{

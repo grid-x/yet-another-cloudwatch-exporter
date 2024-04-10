@@ -8,8 +8,8 @@ steps:
 - wait # >
 - label: ":docker: Build & Push"
   key: "push"
-  branches:
-  - master
+  # branches:
+  # - master
   depends_on:
   - test
   command:
